@@ -33,7 +33,9 @@ fun AuthScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgPage),
+            .background(BgPage)
+            .navigationBarsPadding()
+            .imePadding(),
         contentAlignment = Alignment.Center
     ) {
         Card(

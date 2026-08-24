@@ -214,6 +214,8 @@ private fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(FooterBg)
+            .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
