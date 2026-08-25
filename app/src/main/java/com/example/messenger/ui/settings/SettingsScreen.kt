@@ -18,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +37,7 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.loggedOut) {
         if (state.loggedOut) onLoggedOut()
@@ -177,7 +180,48 @@ fun SettingsScreen(
                 labelColor = MaterialTheme.colorScheme.error,
                 onClick = viewModel::logout
             )
+            SettingsActionRow(
+                label = "Удалить аккаунт",
+                labelColor = MaterialTheme.colorScheme.error,
+                onClick = { showDeleteAccountDialog = true }
+            )
+            if (state.accountDeleteError != null) {
+                Text(
+                    state.accountDeleteError!!,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
+    }
+
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountDialog = false },
+            title = { Text("Удалить аккаунт?", style = MaterialTheme.typography.titleMedium) },
+            text = {
+                Text(
+                    "Личные переписки удалятся безвозвратно — у вас и у собеседника. " +
+                        "Групповые чаты останутся: вы просто выйдете из них, сообщения других участников не тронутся.",
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.accountDeleteLoading,
+                    onClick = {
+                        showDeleteAccountDialog = false
+                        viewModel.deleteAccount()
+                    }
+                ) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false }) { Text("Отмена") }
+            }
+        )
     }
 }
 

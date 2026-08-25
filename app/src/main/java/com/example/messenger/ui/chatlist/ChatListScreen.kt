@@ -1,7 +1,8 @@
 package com.example.messenger.ui.chatlist
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.messenger.data.model.ChatDto
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatListScreen(
     viewModel: ChatListViewModel,
@@ -27,6 +28,14 @@ fun ChatListScreen(
     val state by viewModel.state.collectAsState()
     var showDmDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
+    var chatPendingDeletion by remember { mutableStateOf<ChatDto?>(null) }
+
+    // Экран пересоздаётся при каждом возврате сюда (popBackStack из чата/настроек),
+    // а ViewModel и её кэш списка — нет, поэтому обновляем список на каждый вход:
+    // иначе после удаления чата через ChatScreen тут остался бы "призрак".
+    LaunchedEffect(Unit) {
+        viewModel.loadChats()
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -101,7 +110,11 @@ fun ChatListScreen(
                 )
                 else -> LazyColumn {
                     items(state.filteredChats, key = { it.chatId }) { chat ->
-                        ChatRow(chat = chat, onClick = { onOpenChat(chat.chatId, chat.title, chat.chatType, chat.peerEmail) })
+                        ChatRow(
+                            chat = chat,
+                            onClick = { onOpenChat(chat.chatId, chat.title, chat.chatType, chat.peerEmail) },
+                            onLongClick = { if (chat.chatType == "dm") chatPendingDeletion = chat }
+                        )
                     }
                 }
             }
@@ -141,14 +154,41 @@ fun ChatListScreen(
             }
         )
     }
+
+    val chatToDelete = chatPendingDeletion
+    if (chatToDelete != null) {
+        DeleteDmChatDialog(
+            onDismiss = { chatPendingDeletion = null },
+            onConfirm = {
+                viewModel.deleteChat(chatToDelete.chatId)
+                chatPendingDeletion = null
+            }
+        )
+    }
 }
 
 @Composable
-private fun ChatRow(chat: ChatDto, onClick: () -> Unit) {
+private fun DeleteDmChatDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Удалить переписку?", style = MaterialTheme.typography.titleMedium) },
+        text = { Text("Чат будет удалён безвозвратно у вас и у собеседника.", fontSize = 13.sp) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Удалить", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ChatRow(chat: ChatDto, onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {

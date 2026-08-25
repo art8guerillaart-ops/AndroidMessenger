@@ -22,6 +22,8 @@ data class SettingsUiState(
     val notificationSoundUri: String? = null,
     val vibrationEnabled: Boolean = true,
     val darkThemeEnabled: Boolean = false,
+    val accountDeleteLoading: Boolean = false,
+    val accountDeleteError: String? = null,
     val loggedOut: Boolean = false
 )
 
@@ -130,6 +132,36 @@ class SettingsViewModel(
             if (token != null) runCatching { api.logout(token) }
             session.clear()
             _state.value = _state.value.copy(loggedOut = true)
+        }
+    }
+
+    /**
+     * Удаляет аккаунт целиком (см. DELETE /api/account в main.py): личные чаты
+     * уничтожаются полностью у обеих сторон, групповые — пользователь просто
+     * покидает их. После успеха ведёт себя как logout — сессия локально очищается.
+     */
+    fun deleteAccount() {
+        viewModelScope.launch {
+            val token = session.currentToken() ?: return@launch
+            _state.value = _state.value.copy(accountDeleteLoading = true, accountDeleteError = null)
+            runCatching { api.deleteAccount(token) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        session.clear()
+                        _state.value = _state.value.copy(accountDeleteLoading = false, loggedOut = true)
+                    } else {
+                        _state.value = _state.value.copy(
+                            accountDeleteLoading = false,
+                            accountDeleteError = "Не удалось удалить аккаунт"
+                        )
+                    }
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(
+                        accountDeleteLoading = false,
+                        accountDeleteError = "Нет соединения с сервером"
+                    )
+                }
         }
     }
 }

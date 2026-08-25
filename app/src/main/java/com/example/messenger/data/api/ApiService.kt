@@ -28,6 +28,9 @@ interface ApiService {
         @Body body: NicknameUpdateRequest
     ): Response<ProfileDto>
 
+    @DELETE("/api/account")
+    suspend fun deleteAccount(@Header("X-Session-Token") token: String): Response<SimpleMessage>
+
     // ---- Chats ----
     @GET("/api/chats")
     suspend fun getChats(@Header("X-Session-Token") token: String): Response<List<ChatDto>>

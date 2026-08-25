@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
@@ -51,6 +52,8 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var showParticipants by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) {
@@ -58,8 +61,8 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(state.leftGroup) {
-        if (state.leftGroup) onLeftGroup()
+    LaunchedEffect(state.leftGroup, state.chatDeleted) {
+        if (state.leftGroup || state.chatDeleted) onLeftGroup()
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -116,6 +119,26 @@ fun ChatScreen(
                             )
                         }
                     }
+                    if (state.chatType == "dm") {
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "Ещё",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Удалить чат", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showDeleteDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
@@ -169,6 +192,23 @@ fun ChatScreen(
             onAdd = viewModel::addParticipant,
             onRemove = viewModel::removeParticipant,
             onDismiss = { showParticipants = false }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Удалить переписку?", style = MaterialTheme.typography.titleMedium) },
+            text = { Text("Чат будет удалён безвозвратно у вас и у собеседника.", fontSize = 13.sp) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    viewModel.deleteChat()
+                }) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Отмена") } }
         )
     }
 }

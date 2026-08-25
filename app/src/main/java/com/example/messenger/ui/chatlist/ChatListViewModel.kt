@@ -18,6 +18,7 @@ data class ChatListUiState(
     val error: String? = null,
     val dmError: String? = null,
     val groupError: String? = null,
+    val deleteChatError: String? = null,
     val query: String = ""
 ) {
     val filteredChats: List<ChatDto>
@@ -32,10 +33,6 @@ class ChatListViewModel(
 
     private val _state = MutableStateFlow(ChatListUiState())
     val state: StateFlow<ChatListUiState> = _state.asStateFlow()
-
-    init {
-        loadChats()
-    }
 
     fun onQueryChange(value: String) {
         _state.value = _state.value.copy(query = value)
@@ -102,6 +99,25 @@ class ChatListViewModel(
                 }
                 .onFailure {
                     _state.value = _state.value.copy(groupError = "Нет соединения с сервером")
+                }
+        }
+    }
+
+    /** Для DM удаляет переписку целиком у обоих участников (см. DELETE /api/chats/{id} в main.py). */
+    fun deleteChat(chatId: String) {
+        viewModelScope.launch {
+            val token = session.currentToken() ?: return@launch
+            _state.value = _state.value.copy(deleteChatError = null)
+            runCatching { api.deleteChat(token, chatId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        loadChats()
+                    } else {
+                        _state.value = _state.value.copy(deleteChatError = "Не удалось удалить чат")
+                    }
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(deleteChatError = "Нет соединения с сервером")
                 }
         }
     }

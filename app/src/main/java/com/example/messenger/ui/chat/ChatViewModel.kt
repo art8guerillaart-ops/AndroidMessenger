@@ -49,7 +49,8 @@ data class ChatUiState(
     val iAmAdmin: Boolean = false,
     val participantError: String? = null,
     val leftGroup: Boolean = false,
-    val isMuted: Boolean = false
+    val isMuted: Boolean = false,
+    val chatDeleted: Boolean = false
 )
 
 class ChatViewModel(
@@ -276,6 +277,24 @@ class ChatViewModel(
                     _state.value = _state.value.copy(connectionError = "Не удалось загрузить файл")
                 }
             _state.value = _state.value.copy(uploading = false)
+        }
+    }
+
+    /** Только для dm: удаляет переписку целиком у обоих участников (см. DELETE /api/chats/{id} в main.py). */
+    fun deleteChat() {
+        viewModelScope.launch {
+            val token = session.currentToken() ?: return@launch
+            runCatching { api.deleteChat(token, chatId) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        _state.value = _state.value.copy(chatDeleted = true)
+                    } else {
+                        _state.value = _state.value.copy(connectionError = "Не удалось удалить чат")
+                    }
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(connectionError = "Нет соединения с сервером")
+                }
         }
     }
 
