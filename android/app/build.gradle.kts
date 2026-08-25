@@ -33,6 +33,21 @@ android {
         buildConfig = true
     }
 
+    // libsignal-android тащит за собой лишний вес:
+    // - libsignal_jni_testing.so — нативка для внутренних тестов Signal
+    //   (класс NativeTesting), приложение её не грузит и не использует;
+    // - *.dylib/*.dll — нативки для JVM-тестов на macOS/Windows, на Android
+    //   не исполняются в принципе.
+    // Вместе это ~375 МБ мёртвого веса в APK.
+    packaging {
+        jniLibs {
+            excludes += "**/libsignal_jni_testing.so"
+        }
+        resources {
+            excludes += setOf("**/*.dylib", "**/*.dll")
+        }
+    }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
