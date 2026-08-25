@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messenger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg-page: #dddddd;
+            --card-bg: #e6e6e6;
+            --white: #ffffff;
+            --black: #1d1d1c;
+            --sidebar-bg: #d9d9d9;
+            --panel-bg: #f4f4f4;
+            --footer-bg: #f5f5f5;
+            --muted-text: #9d9d9d;
+            --border-soft: rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--black);
+            font-family: 'Michroma', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* Заголовки, кнопки, лейблы — узнаваемый геометричный шрифт и мелкий uppercase-размер,
+           как в макете. Для читаемости текста самих сообщений ниже есть отдельное переопределение. */
+        h2, h3, button, .chat-item-title span, .status, label, .search-input::placeholder {
+            font-family: 'Michroma', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .auth-card {
+            width: 253px;
+            height: 477px;
+            position: relative;
+            background-color: var(--card-bg);
+            padding: 0;
+            border-radius: 4px;
+            box-shadow: -7px 4px 13.5px 1px rgba(0, 0, 0, 0.25);
+        }
+        /* Позиции ниже — точные координаты из макета (title на 43px от верха карточки,
+           поле+кнопка на 239px, ширина полей 227px из общих 253px) */
+        .auth-card h2 {
+            position: absolute;
+            top: 43px;
+            left: 0;
+            width: 100%;
+            font-size: 12px;
+            margin: 0;
+            text-align: center;
+            color: var(--black);
+            font-weight: normal;
+        }
+        .auth-card #step1, .auth-card #step2 {
+            position: absolute;
+            top: 239px;
+            left: 13px;
+            width: 227px;
+        }
+        .auth-input {
+            width: 227px;
+            height: 28px;
+            background-color: var(--white);
+            border: none;
+            border-radius: 6px;
+            padding: 0 12px;
+            color: var(--black);
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            outline: none;
+            margin-bottom: 15px;
+            box-shadow: inset 3px 2px 4.2px -1px rgba(0, 0, 0, 0.25);
+            box-sizing: border-box;
+        }
+        .auth-btn {
+            width: 227px;
+            height: 28px;
+            background-color: var(--black);
+            border: none;
+            border-radius: 6px;
+            padding: 0;
+            color: var(--white);
+            font-size: 10px;
+            cursor: pointer;
+            box-shadow: -1px 2px 7px -1px rgba(0, 0, 0, 0.25);
+            transition: opacity 0.2s;
+        }
+        .auth-btn:hover { opacity: 0.85; }
+        .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { position: absolute; top: 300px; left: 13px; width: 227px; font-size: 10px; text-align: center; color: var(--muted-text); font-family: 'Michroma', sans-serif; }
+        .error-text { position: absolute; top: 285px; left: 13px; width: 227px; color: #b23b3b; font-size: 10px; text-align: center; min-height: 14px; font-family: 'Michroma', sans-serif; }
+        .hidden { display: none !important; }
+
+        .messenger-layout {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 950px;
+            height: 100vh;
+            background-color: var(--white);
+        }
+        @media (min-width: 1000px) {
+            .messenger-layout { height: 85vh; border-radius: 4px; overflow: hidden; box-shadow: -7px 4px 13.5px 1px rgba(0, 0, 0, 0.25); }
+        }
+
+        /* Шапка на всю ширину — соответствует Rectangle 11 (градиентная полоса) из макета,
+           38px из 477px общей высоты card ≈ 8% */
+        .messenger-top-bar {
+            display: flex;
+            flex-shrink: 0;
+            height: 48px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .chat-title-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+            padding: 0 16px;
+            background-color: var(--white);
+            position: relative;
+        }
+        .chat-title-area h2 { margin: 0; font-size: 12px; color: var(--black); font-weight: normal; }
+        .chat-title-area .status { font-size: 9px; color: var(--muted-text); }
+        .chat-title-area #participantsBtn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+        .profile-btn {
+            background: none; border: none; color: var(--black); cursor: pointer;
+            font-size: 10px; padding: 6px 10px; border-radius: 5px; transition: background 0.2s;
+            font-family: 'Michroma', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .profile-btn:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+        /* Правая часть шапки — точно как SEARCH-поле (163px) плюс три декоративных круга
+           (58:98, 58:99, 58:100) из макета, здесь используются как кнопки Профиль/Личка/Группа */
+        .sidebar-top-area {
+            width: 25.15%;
+            min-width: 210px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            background-color: var(--sidebar-bg);
+        }
+        .circle-btn {
+            width: 19px; height: 19px; min-width: 19px;
+            border-radius: 50%;
+            background-color: var(--white);
+            border: none;
+            box-shadow: -1px 2px 4px -1px rgba(0, 0, 0, 0.2);
+            font-size: 9px;
+            color: var(--black);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: opacity 0.2s;
+        }
+        .circle-btn:hover { opacity: 0.7; }
+
+        /* Основная строка: главный контент (75%) слева + список чатов (25%) справа —
+           соответствует Rectangle 6 (843px) с наложенным справа Rectangle 19 (212px, 212/843≈25.15%) */
+        .messenger-body { flex: 1; display: flex; overflow: hidden; }
+
+        .sidebar { width: 25.15%; min-width: 210px; background-color: var(--sidebar-bg); border-left: 1px solid var(--border-soft); display: flex; flex-direction: column; }
+        .search-input {
+            flex: 1; background-color: var(--white); border: none; border-radius: 5px;
+            padding: 6px 10px; color: var(--black); font-size: 9px; outline: none;
+            box-shadow: -1px 2px 4px -1px rgba(0, 0, 0, 0.15);
+        }
+        .search-input::placeholder { color: var(--muted-text); font-size: 9px; }
+        .chats-list { flex: 1; overflow-y: auto; }
+        .chat-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-soft); transition: background 0.2s; position: relative; }
+        .chat-item:hover { background-color: rgba(0, 0, 0, 0.04); }
+        .chat-item.active { background-color: var(--white); }
+        .chat-item-title { font-size: 12px; margin-bottom: 3px; color: var(--black); display: flex; justify-content: space-between; align-items: center; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .chat-item-title span { font-size: 10px; }
+        .chat-item-preview { font-size: 11px; color: var(--muted-text); font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+
+        .unread-badge {
+            background-color: var(--black); color: var(--white); font-size: 10px;
+            padding: 2px 6px; border-radius: 10px; min-width: 16px; text-align: center; display: inline-block;
+        }
+
+        .chat-main-area { flex: 1; display: flex; flex-direction: column; height: 100%; background-color: var(--white); }
+
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: var(--white); }
+        .message { display: flex; }
+        .message.outgoing { justify-content: flex-end; }
+        .message-bubble { background: var(--panel-bg); padding: 10px 14px; border-radius: 6px; max-width: 70%; word-break: break-word; }
+        .message.outgoing .message-bubble { background: var(--black); }
+        .message.outgoing .message-bubble p, .message.outgoing .message-bubble .time { color: var(--white); }
+        .message-bubble .author { font-size: 10px; font-family: 'Michroma', sans-serif; color: var(--muted-text); display: block; margin-bottom: 3px; }
+        /* Текст самого сообщения — читаемым системным шрифтом, Michroma в макете не была
+           показана на теле сообщений (область была пустой), так что здесь приоритет читаемости */
+        .message-bubble p { margin: 0; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: var(--black); }
+        .message-bubble .time { font-size: 9px; color: var(--muted-text); display: block; text-align: right; margin-top: 4px; font-family: 'Michroma', sans-serif; }
+
+        .chat-input-area { display: flex; align-items: center; padding: 10px 16px; background: var(--footer-bg); border-top: 1px solid var(--border-soft); gap: 10px; }
+        .chat-input-area input[type="text"] { flex: 1; background: var(--white); border: none; border-radius: 6px; padding: 10px 16px; color: var(--black); outline: none; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; box-shadow: inset 2px 1px 3px -1px rgba(0,0,0,0.15); }
+        .attach-btn, #sendButton { background: none; border: none; color: var(--black); cursor: pointer; font-size: 16px; transition: opacity 0.2s; }
+        .attach-btn:hover, #sendButton:hover { opacity: 0.6; }
+        .message-image { max-width: 240px; max-height: 240px; border-radius: 6px; margin-top: 6px; display: block; cursor: pointer; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background-color: var(--card-bg); padding: 24px; border-radius: 4px; width: 100%; max-width: 360px; box-shadow: -7px 4px 13.5px 1px rgba(0,0,0,0.25); }
+        .modal-content h3 { margin-bottom: 16px; font-size: 12px; color: var(--black); font-weight: normal; }
+        .modal-close { background-color: var(--black); border: none; color: var(--white); padding: 9px 14px; border-radius: 6px; cursor: pointer; margin-top: 15px; width: 100%; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="authScreen" class="auth-card">
+        <h2 id="authTitle">WELCOME</h2>
+
+        <div id="step1">
+            <div style="position: relative;">
+                <span style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: var(--muted-text); font-family: 'Michroma', sans-serif; pointer-events: none;">@</span>
+                <input type="email" id="email" class="auth-input" style="padding-left: 22px;">
+            </div>
+            <button class="auth-btn" id="sendCodeBtn" onclick="sendCode()">GET THE CODE</button>
+        </div>
+
+        <div id="step2" class="hidden">
+            <input type="text" id="code" class="auth-input" maxlength="4">
+            <button class="auth-btn" id="verifyBtn" onclick="verifyCode()">GO</button>
+        </div>
+
+        <div id="authError" class="error-text"></div>
+        <p id="status"></p>
+    </div>
+
+    <div id="messengerScreen" class="messenger-layout" style="display: none;">
+
+        <div class="messenger-top-bar">
+            <div class="chat-title-area">
+                <h2 id="chatHeader">Общий чат</h2>
+                <div class="status" id="chatStatus">офлайн</div>
+                <button class="profile-btn hidden" id="participantsBtn" onclick="openParticipants()" title="Участники группы">Участники</button>
+            </div>
+            <div class="sidebar-top-area">
+                <input type="text" id="searchInput" class="search-input" placeholder="SEARCH" oninput="filterChats()">
+                <button class="circle-btn" onclick="openProfile()" title="Профиль">П</button>
+                <button class="circle-btn" onclick="startDirectMessage()" title="Личное сообщение">Л</button>
+                <button class="circle-btn" onclick="addNewChat()" title="Групповой чат">Г</button>
+            </div>
+        </div>
+
+        <div class="messenger-body">
+            <div class="chat-main-area">
+                <div id="messagesList" class="chat-messages"></div>
+
+                <div class="chat-input-area">
+                    <input type="file" id="fileInput" style="display: none;" onchange="uploadAndSendFile(this)">
+                    <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Прикрепить файл">+</button>
+
+                    <input type="text" id="messageInput" placeholder="Написать сообщение..." onkeypress="handleKeyPress(event)">
+                    <button id="sendButton" onclick="sendMessage()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="chats-list" id="chatsListContainer"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="profileModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Личный профиль</h3>
+            <p style="color: #9d9d9d; font-size: 11px; margin-bottom: 8px; font-family: 'Michroma', sans-serif;">Ваш email (аккаунт):</p>
+            <p id="profileEmailDisplay" style="color: #1d1d1c; font-family: -apple-system, sans-serif; font-weight: 600; margin-bottom: 16px;"></p>
+            <button class="modal-close" onclick="logout()">Выйти из аккаунта</button>
+        </div>
+    </div>
+
+    <div id="participantsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>Участники группы</h3>
+            <div id="participantsList" style="margin-bottom: 16px; max-height: 240px; overflow-y: auto;"></div>
+            <div id="addParticipantBlock" class="hidden" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input type="email" id="newParticipantEmail" class="auth-input" placeholder="email нового участника" style="margin-bottom: 0;">
+                <button class="auth-btn" style="width: auto; padding: 9px 16px;" onclick="addParticipant()">+</button>
+            </div>
+            <button class="modal-close" onclick="closeParticipants()">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        let userEmail = "";
+        let sessionToken = "";
+        let ws = null;
+        let currentChatId = "general-chat";
+        let unreadCounts = {};
+        let backgroundSockets = {};
+
+        // ---- Вспомогательное: авторизованный fetch ----
+        async function authFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            if (sessionToken) {
+                options.headers["X-Session-Token"] = sessionToken;
+            }
+            return fetch(url, options);
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.innerText = str;
+            return div.innerHTML;
+        }
+
+        // ---- Авторизация ----
+        async function sendCode() {
+            const email = document.getElementById("email").value.trim();
+            const errEl = document.getElementById("authError");
+            errEl.innerText = "";
+            if (!email) { errEl.innerText = "Введите email"; return; }
+
+            const btn = document.getElementById("sendCodeBtn");
+            btn.disabled = true;
+
+            try {
+                let response = await fetch('/api/send-code', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email})
+                });
+                let data = await response.json();
+
+                if (response.ok) {
+                    userEmail = email;
+                    document.getElementById("status").innerText = "Код отправлен в терминал сервера!";
+                    document.getElementById("step1").classList.add("hidden");
+                    document.getElementById("step2").classList.remove("hidden");
+                    const titleEl = document.getElementById("authTitle");
+                    titleEl.innerText = "VERIFICATION";
+                    titleEl.style.top = "62px";
+                } else {
+                    errEl.innerText = data.detail || "Ошибка отправки кода";
+                }
+            } catch (e) {
+                errEl.innerText = "Ошибка соединения с сервером";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function verifyCode() {
+            const codeVal = document.getElementById("code").value.trim();
+            const errEl = document.getElementById("authError");
+            errEl.innerText = "";
+
+            try {
+                let response = await fetch('/api/verify-code', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: userEmail, code: codeVal})
+                });
+                let data = await response.json();
+
+                if (response.ok) {
+                    sessionToken = data.token;
+                    userEmail = data.email;
+                    document.getElementById("authScreen").style.display = "none";
+                    document.getElementById("messengerScreen").style.display = "flex";
+                    document.getElementById("profileEmailDisplay").innerText = userEmail;
+                    await loadChats();
+                } else {
+                    errEl.innerText = data.detail || "Неверный код";
+                }
+            } catch (e) {
+                errEl.innerText = "Ошибка соединения с сервером";
+            }
+        }
+
+        async function logout() {
+            await authFetch('/api/logout', { method: 'POST' });
+            location.reload();
+        }
+
+        // ---- Чаты ----
+        let chatTypes = {}; // chat_id -> "public" | "dm" | "group"
+
+        async function loadChats() {
+            let response = await authFetch('/api/chats');
+            if (!response.ok) { if (response.status === 401) location.reload(); return; }
+            let chats = await response.json();
+
+            const listContainer = document.getElementById("chatsListContainer");
+            listContainer.innerHTML = "";
+
+            chats.forEach((chat) => {
+                chatTypes[chat.chat_id] = chat.chat_type;
+
+                let item = document.createElement("div");
+                item.className = "chat-item" + (chat.chat_id === currentChatId ? " active" : "");
+                item.id = "chat_item_" + chat.chat_id;
+                item.setAttribute("data-title", chat.title);
+
+                let deleteBtnHTML = "";
+                if (chat.chat_id !== "general-chat") {
+                    deleteBtnHTML = `<button onclick="deleteChat(event, '${chat.chat_id}')" style="background:none; border:none; color:#9d9d9d; cursor:pointer; font-size:14px; margin-left:8px;" title="Удалить чат">✕</button>`;
+                }
+
+                let unreadCount = unreadCounts[chat.chat_id] || 0;
+                let badgeHTML = `<span class="unread-badge" id="badge_${chat.chat_id}" style="${unreadCount > 0 ? '' : 'display:none;'}">${unreadCount}</span>`;
+
+                item.onclick = function() { switchChat(chat.chat_id, chat.title, item); };
+                let icon = chat.chat_type === "dm" ? "👤" : (chat.chat_type === "group" ? "👥" : "🌍");
+                item.innerHTML = `
+                    <div class="chat-item-title">
+                        <span>${icon} ${escapeHtml(chat.title)}</span>
+                        <div>${badgeHTML} ${deleteBtnHTML}</div>
+                    </div>
+                    <div class="chat-item-preview" id="preview_${chat.chat_id}">Нажмите для чтения</div>
+                `;
+                listContainer.appendChild(item);
+
+                initBackgroundSocket(chat.chat_id);
+            });
+
+            await loadMessages(currentChatId);
+            initActiveSocket(currentChatId);
+            updateParticipantsButtonVisibility();
+        }
+
+        function updateParticipantsButtonVisibility() {
+            const btn = document.getElementById("participantsBtn");
+            if (chatTypes[currentChatId] === "group") {
+                btn.classList.remove("hidden");
+            } else {
+                btn.classList.add("hidden");
+            }
+        }
+
+        function wsUrl(chatId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            return `${protocol}//${window.location.host}/ws/${encodeURIComponent(chatId)}?token=${encodeURIComponent(sessionToken)}`;
+        }
+
+        function initBackgroundSocket(chatId) {
+            if (backgroundSockets[chatId]) return;
+
+            let bgWs = new WebSocket(wsUrl(chatId));
+            bgWs.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === "message") {
+                    let previewEl = document.getElementById(`preview_${chatId}`);
+                    if (previewEl) {
+                        previewEl.innerText = `${data.sender}: ${data.text || '[Файл]'}`;
+                    }
+                    if (chatId !== currentChatId && data.sender !== userEmail) {
+                        unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
+                        let badge = document.getElementById(`badge_${chatId}`);
+                        if (badge) {
+                            badge.innerText = unreadCounts[chatId];
+                            badge.style.display = "inline-block";
+                        }
+                    }
+                }
+            };
+            backgroundSockets[chatId] = bgWs;
+        }
+
+        async function deleteChat(event, chatId) {
+            event.stopPropagation();
+            if (!confirm("Вы уверены, что хотите удалить этот чат и всю его историю?")) return;
+
+            let response = await authFetch(`/api/chats/${chatId}`, { method: 'DELETE' });
+            if (response.ok) {
+                if (backgroundSockets[chatId]) {
+                    backgroundSockets[chatId].close();
+                    delete backgroundSockets[chatId];
+                }
+                if (currentChatId === chatId) {
+                    let generalItem = document.getElementById("chat_item_general-chat");
+                    switchChat("general-chat", "Общий чат", generalItem);
+                }
+                await loadChats();
+            } else {
+                let err = await response.json();
+                alert(err.detail || "Не удалось удалить чат");
+            }
+        }
+
+        async function loadMessages(chatId) {
+            let response = await authFetch(`/api/messages/${chatId}`);
+            let messages = await response.json();
+
+            const messagesList = document.getElementById("messagesList");
+            messagesList.innerHTML = "";
+
+            if (messages.length === 0) {
+                messagesList.innerHTML = `
+                    <div class="message incoming">
+                        <div class="message-bubble">
+                            <span class="author">Система</span>
+                            <p>История этого чата пуста. Напишите первое сообщение или отправьте файл!</p>
+                            <span class="time">сейчас</span>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            messages.forEach(msg => renderMessage(msg));
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        function renderMessage(data) {
+            const messagesList = document.getElementById("messagesList");
+            const isMy = data.sender === userEmail;
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message", isMy ? "outgoing" : "incoming");
+
+            let contentHTML = `<span class="author">${escapeHtml(data.sender)}</span>`;
+            if (data.text) {
+                contentHTML += `<p>${escapeHtml(data.text)}</p>`;
+            }
+            if (data.file_url) {
+                if (/\.(jpg|jpeg|png|gif|webp)$/i.test(data.file_url)) {
+                    contentHTML += `<img src="${data.file_url}" class="message-image" onclick="window.open(this.src)" alt="картинка">`;
+                } else {
+                    let fileName = data.file_url.split('/').pop();
+                    contentHTML += `<p><a href="${data.file_url}" target="_blank" style="color: #1d1d1c; text-decoration: underline;">📄 Скачать файл (${escapeHtml(fileName)})</a></p>`;
+                }
+            }
+            let timeStr = data.time ? (data.time.split(" ")[1] || '') : 'только что';
+            contentHTML += `<span class="time">${timeStr}</span>`;
+
+            messageDiv.innerHTML = `<div class="message-bubble">${contentHTML}</div>`;
+            messagesList.appendChild(messageDiv);
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        function initActiveSocket(chatId) {
+            if (ws) ws.close();
+
+            ws = new WebSocket(wsUrl(chatId));
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === "presence") {
+                    document.getElementById("chatStatus").innerText = `онлайн: ${data.online_users.length} участник(ов)`;
+                } else if (data.type === "message") {
+                    renderMessage(data);
+                }
+            };
+            ws.onclose = function(event) {
+                if (event.code === 4401) {
+                    alert("Сессия истекла, войдите заново");
+                    location.reload();
+                }
+            };
+        }
+
+        async function switchChat(chatId, chatTitle, element) {
+            currentChatId = chatId;
+            document.getElementById("chatHeader").innerText = chatTitle;
+
+            unreadCounts[chatId] = 0;
+            let badge = document.getElementById(`badge_${chatId}`);
+            if (badge) {
+                badge.innerText = "0";
+                badge.style.display = "none";
+            }
+
+            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+            if (element) element.classList.add('active');
+
+            await loadMessages(chatId);
+            initActiveSocket(chatId);
+            updateParticipantsButtonVisibility();
+        }
+
+        async function startDirectMessage() {
+            let peerEmail = prompt("Введите email пользователя, которому хотите написать:");
+            if (!peerEmail || !peerEmail.trim()) return;
+
+            let response = await authFetch('/api/dm', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({peer_email: peerEmail.trim()})
+            });
+
+            if (response.ok) {
+                let result = await response.json();
+                await loadChats();
+                let newItem = document.getElementById("chat_item_" + result.chat_id);
+                if (newItem) switchChat(result.chat_id, result.title, newItem);
+            } else {
+                let err = await response.json();
+                alert(err.detail || "Не удалось начать чат");
+            }
+        }
+
+        async function addNewChat() {
+            let targetTitle = prompt("Введите название нового чата:");
+            if (!targetTitle || !targetTitle.trim()) return;
+
+            let chatId = "chat_" + targetTitle.replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now();
+
+            let response = await authFetch('/api/chats', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({chat_id: chatId, title: targetTitle})
+            });
+
+            if (response.ok) {
+                let result = await response.json();
+                await loadChats();
+                let newItem = document.getElementById("chat_item_" + result.chat_id);
+                if (newItem) switchChat(result.chat_id, targetTitle, newItem);
+            }
+        }
+
+        async function uploadAndSendFile(inputElement) {
+            const file = inputElement.files[0];
+            if (!file) return;
+
+            let formData = new FormData();
+            formData.append("file", file);
+
+            let response = await authFetch('/api/upload', { method: 'POST', body: formData });
+
+            if (response.ok) {
+                let result = await response.json();
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ text: file.name, file_url: result.file_url }));
+                }
+            } else {
+                let err = await response.json();
+                alert(err.detail || "Ошибка загрузки файла");
+            }
+            inputElement.value = "";
+        }
+
+        function filterChats() {
+            let query = document.getElementById("searchInput").value.toLowerCase();
+            document.querySelectorAll(".chat-item").forEach(item => {
+                let title = item.getAttribute("data-title").toLowerCase();
+                item.style.display = title.includes(query) ? "block" : "none";
+            });
+        }
+
+        function openProfile() { document.getElementById("profileModal").style.display = "flex"; }
+        function closeProfile() { document.getElementById("profileModal").style.display = "none"; }
+
+        async function openParticipants() {
+            document.getElementById("participantsModal").style.display = "flex";
+            await loadParticipants();
+        }
+
+        function closeParticipants() {
+            document.getElementById("participantsModal").style.display = "none";
+        }
+
+        async function loadParticipants() {
+            let response = await authFetch(`/api/chats/${currentChatId}/participants`);
+            if (!response.ok) return;
+            let participants = await response.json();
+
+            const iAmAdmin = participants.some(p => p.email === userEmail && p.is_admin);
+            document.getElementById("addParticipantBlock").classList.toggle("hidden", !iAmAdmin);
+
+            const listEl = document.getElementById("participantsList");
+            listEl.innerHTML = "";
+            participants.forEach(p => {
+                let row = document.createElement("div");
+                row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);";
+
+                let label = escapeHtml(p.email) + (p.is_admin ? " <span style='color:#9d9d9d; font-size:11px;'>(админ)</span>" : "");
+                let removeBtnHTML = "";
+                let canRemove = iAmAdmin || p.email === userEmail;
+                if (canRemove) {
+                    let actionLabel = p.email === userEmail ? "Покинуть" : "Удалить";
+                    removeBtnHTML = `<button onclick="removeParticipant('${p.email}')" style="background:none; border:none; color:#ff6b6b; cursor:pointer; font-size:12px;">${actionLabel}</button>`;
+                }
+                row.innerHTML = `<span style="font-size:14px;">${label}</span>${removeBtnHTML}`;
+                listEl.appendChild(row);
+            });
+        }
+
+        async function addParticipant() {
+            const input = document.getElementById("newParticipantEmail");
+            const email = input.value.trim();
+            if (!email) return;
+
+            let response = await authFetch(`/api/chats/${currentChatId}/participants`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email})
+            });
+
+            if (response.ok) {
+                input.value = "";
+                await loadParticipants();
+            } else {
+                let err = await response.json();
+                alert(err.detail || "Не удалось добавить участника");
+            }
+        }
+
+        async function removeParticipant(memberEmail) {
+            const isSelf = memberEmail === userEmail;
+            if (!confirm(isSelf ? "Покинуть группу?" : `Удалить ${memberEmail} из группы?`)) return;
+
+            let response = await authFetch(`/api/chats/${currentChatId}/participants/${encodeURIComponent(memberEmail)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                if (isSelf) {
+                    closeParticipants();
+                    let generalItem = document.getElementById("chat_item_general-chat");
+                    await switchChat("general-chat", "Общий чат", generalItem);
+                    await loadChats();
+                } else {
+                    await loadParticipants();
+                }
+            } else {
+                let err = await response.json();
+                alert(err.detail || "Не удалось удалить участника");
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const text = input.value.trim();
+            if (text && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ text, file_url: null }));
+                input.value = "";
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') sendMessage();
+        }
+    </script>
+</body>
+</html>
