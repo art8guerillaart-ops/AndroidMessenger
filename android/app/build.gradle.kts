@@ -19,7 +19,7 @@ android {
         // Базовый адрес бэкенда.
         // 10.0.2.2 — это localhost хоста внутри Android-эмулятора.
         // Если сервер задеплоен (например, на Render/VPS) — подставь его https-адрес.
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000\"")
+        buildConfigField("String", "BASE_URL", "\"https://wired-arrogance-census.ngrok-free.dev\"")
     }
 
     buildTypes {
