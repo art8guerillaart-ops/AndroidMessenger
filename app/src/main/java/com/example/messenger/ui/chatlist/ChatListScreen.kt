@@ -13,56 +13,69 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.messenger.data.model.ChatDto
-import com.example.messenger.ui.theme.*
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatListScreen(
     viewModel: ChatListViewModel,
-    onOpenChat: (chatId: String, title: String, chatType: String) -> Unit,
-    onLoggedOut: () -> Unit
+    onOpenChat: (chatId: String, title: String, chatType: String, peerEmail: String?) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     var showDmDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
-    var showProfileDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     Scaffold(
-        containerColor = White,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            Column(modifier = Modifier.background(SidebarBg)) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)) {
                 TopAppBar(
-                    title = { Text("ЧАТЫ", style = MaterialTheme.typography.titleMedium, color = InkBlack) },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = SidebarBg),
+                    title = {
+                        Text(
+                            "ЧАТЫ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     actions = {
                         IconButton(onClick = { showDmDialog = true }) {
-                            Icon(Icons.Default.Person, contentDescription = "Личное сообщение", tint = InkBlack)
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "Личное сообщение",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                         IconButton(onClick = { showGroupDialog = true }) {
-                            Icon(Icons.Default.Group, contentDescription = "Новая группа", tint = InkBlack)
+                            Icon(
+                                Icons.Default.Group,
+                                contentDescription = "Новая группа",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
-                        IconButton(onClick = { showProfileDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Профиль", tint = InkBlack)
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Настройки",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 )
                 OutlinedTextField(
                     value = state.query,
                     onValueChange = viewModel::onQueryChange,
-                    placeholder = { Text("SEARCH", fontSize = 11.sp, color = MutedText) },
+                    placeholder = { Text("SEARCH", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = White,
-                        unfocusedContainerColor = White,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                         focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
                         unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
                     )
@@ -74,21 +87,21 @@ fun ChatListScreen(
             when {
                 state.loading -> CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = InkBlack
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 state.error != null -> Text(
                     state.error!!,
                     modifier = Modifier.align(Alignment.Center),
-                    color = ErrorRed
+                    color = MaterialTheme.colorScheme.error
                 )
                 state.filteredChats.isEmpty() -> Text(
                     "Ничего не найдено",
                     modifier = Modifier.align(Alignment.Center),
-                    color = MutedText
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 else -> LazyColumn {
                     items(state.filteredChats, key = { it.chatId }) { chat ->
-                        ChatRow(chat = chat, onClick = { onOpenChat(chat.chatId, chat.title, chat.chatType) })
+                        ChatRow(chat = chat, onClick = { onOpenChat(chat.chatId, chat.title, chat.chatType, chat.peerEmail) })
                     }
                 }
             }
@@ -105,7 +118,9 @@ fun ChatListScreen(
             onConfirm = { email ->
                 viewModel.startDm(email) { chatId, title ->
                     showDmDialog = false
-                    onOpenChat(chatId, title, "dm")
+                    // На этом этапе title = именно email собеседника (см. POST /api/dm) —
+                    // безопасно использовать его же как peerEmail для Signal-сессии.
+                    onOpenChat(chatId, title, "dm", title)
                 }
             }
         )
@@ -121,28 +136,8 @@ fun ChatListScreen(
             onConfirm = { title ->
                 viewModel.createGroup(title) { chatId, createdTitle ->
                     showGroupDialog = false
-                    onOpenChat(chatId, createdTitle, "group")
+                    onOpenChat(chatId, createdTitle, "group", null)
                 }
-            }
-        )
-    }
-
-    if (showProfileDialog) {
-        AlertDialog(
-            onDismissRequest = { showProfileDialog = false },
-            title = { Text("Личный профиль", style = MaterialTheme.typography.titleMedium) },
-            text = { Text(state.myEmail, fontWeight = FontWeight.Medium) },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        viewModel.logout()
-                        showProfileDialog = false
-                        onLoggedOut()
-                    }
-                }) { Text("Выйти из аккаунта", color = InkBlack) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showProfileDialog = false }) { Text("Закрыть") }
             }
         )
     }
@@ -154,10 +149,10 @@ private fun ChatRow(chat: ChatDto, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .background(White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(chat.title, fontSize = 14.sp, color = InkBlack)
+        Text(chat.title, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(3.dp))
         Text(
             when (chat.chatType) {
@@ -166,10 +161,10 @@ private fun ChatRow(chat: ChatDto, onClick: () -> Unit) {
                 else -> "публичный чат"
             },
             fontSize = 11.sp,
-            color = MutedText
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    HorizontalDivider(color = BorderSoft, thickness = 1.dp)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
 }
 
 @Composable
@@ -195,13 +190,13 @@ private fun SimpleInputDialog(
                 )
                 if (error != null) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(error, color = ErrorRed, fontSize = 11.sp)
+                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { if (value.isNotBlank()) onConfirm(value.trim()) }) {
-                Text(confirmLabel, color = InkBlack)
+                Text(confirmLabel, color = MaterialTheme.colorScheme.onSurface)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }

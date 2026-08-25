@@ -2,17 +2,21 @@ package com.example.messenger.ui.chat
 
 import android.content.ContentResolver
 import android.net.Uri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.messenger.data.api.ApiService
 import com.example.messenger.data.api.WebSocketClient
 import com.example.messenger.data.api.WsEvent
+import com.example.messenger.data.local.PreferencesManager
 import com.example.messenger.data.local.SessionManager
 import com.example.messenger.data.model.MessageDto
 import com.example.messenger.data.model.ParticipantDto
 import com.example.messenger.data.model.ParticipantRequest
 import com.example.messenger.data.model.WsIncoming
 import com.example.messenger.data.signal.SignalRepository
+import com.example.messenger.notifications.NotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,25 +48,30 @@ data class ChatUiState(
     val participants: List<ParticipantDto> = emptyList(),
     val iAmAdmin: Boolean = false,
     val participantError: String? = null,
-    val leftGroup: Boolean = false
+    val leftGroup: Boolean = false,
+    val isMuted: Boolean = false
 )
 
 class ChatViewModel(
     private val chatId: String,
     initialTitle: String,
     initialChatType: String,
+    initialPeerEmail: String?,
     private val api: ApiService,
     private val session: SessionManager,
     private val webSocketClient: WebSocketClient,
-    private val signalRepository: SignalRepository
+    private val signalRepository: SignalRepository,
+    private val notificationHelper: NotificationHelper,
+    private val preferences: PreferencesManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatUiState(title = initialTitle, chatType = initialChatType))
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
-    // Для dm-чатов сервер отдаёт заголовок = email собеседника (см. GET /api/chats в main.py) —
-    // так что initialTitle можно использовать напрямую как адрес для Signal-сессии.
-    private val peerEmail: String = initialTitle
+    // Заголовок чата (title) — это никнейм собеседника и может отличаться от его email
+    // (см. GET /api/chats в main.py), поэтому для Signal-сессии нужен настоящий email,
+    // переданный отдельно через initialPeerEmail (см. NavGraph/ChatListScreen).
+    private val peerEmail: String = initialPeerEmail ?: initialTitle
 
     private var nextTempId = -1
 
@@ -70,8 +79,18 @@ class ChatViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(myEmail = session.currentEmail().orEmpty())
         }
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isMuted = preferences.isChatMuted(chatId))
+        }
         loadHistory()
         connectSocket()
+    }
+
+    fun toggleMute() {
+        viewModelScope.launch {
+            val nowMuted = preferences.toggleChatMuted(chatId)
+            _state.value = _state.value.copy(isMuted = nowMuted)
+        }
     }
 
     private fun loadHistory() {
@@ -114,6 +133,7 @@ class ChatViewModel(
                                 handleIncomingDmMessage(incoming)
                             } else {
                                 appendMessage(sender = incoming.sender.orEmpty(), text = incoming.text, fileUrl = incoming.fileUrl)
+                                notifyIfBackground(sender = incoming.sender.orEmpty(), text = incoming.text, fileUrl = incoming.fileUrl)
                             }
                         } else if (incoming.type == "presence") {
                             _state.value = _state.value.copy(onlineCount = incoming.onlineUsers?.size ?: 0)
@@ -156,6 +176,21 @@ class ChatViewModel(
 
         if (text == null && incoming.fileUrl == null) return
         appendMessage(sender = incoming.sender.orEmpty(), text = text, fileUrl = incoming.fileUrl)
+        notifyIfBackground(sender = incoming.sender.orEmpty(), text = text, fileUrl = incoming.fileUrl)
+    }
+
+    /**
+     * Показывает локальное уведомление, только если приложение сейчас свёрнуто —
+     * пока пользователь смотрит в этот же экран, дублировать сообщение уведомлением не нужно.
+     * ProcessLifecycleOwner отражает состояние процесса целиком, а не только этой Activity.
+     */
+    private suspend fun notifyIfBackground(sender: String, text: String?, fileUrl: String?) {
+        if (sender == _state.value.myEmail) return
+        val isForeground = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        if (isForeground) return
+
+        val body = text ?: (if (fileUrl != null) "📎 Файл" else return)
+        notificationHelper.showMessageNotification(chatId = chatId, title = _state.value.title, body = body)
     }
 
     private fun reportDecryptError(e: Throwable) {

@@ -18,6 +18,16 @@ interface ApiService {
     @POST("/api/logout")
     suspend fun logout(@Header("X-Session-Token") token: String): Response<SimpleMessage>
 
+    // ---- Profile ----
+    @GET("/api/profile")
+    suspend fun getProfile(@Header("X-Session-Token") token: String): Response<ProfileDto>
+
+    @PATCH("/api/profile")
+    suspend fun updateProfile(
+        @Header("X-Session-Token") token: String,
+        @Body body: NicknameUpdateRequest
+    ): Response<ProfileDto>
+
     // ---- Chats ----
     @GET("/api/chats")
     suspend fun getChats(@Header("X-Session-Token") token: String): Response<List<ChatDto>>

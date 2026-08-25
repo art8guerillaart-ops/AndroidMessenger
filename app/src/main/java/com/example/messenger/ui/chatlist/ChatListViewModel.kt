@@ -16,7 +16,6 @@ data class ChatListUiState(
     val chats: List<ChatDto> = emptyList(),
     val loading: Boolean = true,
     val error: String? = null,
-    val myEmail: String = "",
     val dmError: String? = null,
     val groupError: String? = null,
     val query: String = ""
@@ -35,9 +34,6 @@ class ChatListViewModel(
     val state: StateFlow<ChatListUiState> = _state.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(myEmail = session.currentEmail().orEmpty())
-        }
         loadChats()
     }
 
@@ -108,11 +104,5 @@ class ChatListViewModel(
                     _state.value = _state.value.copy(groupError = "Нет соединения с сервером")
                 }
         }
-    }
-
-    suspend fun logout() {
-        val token = session.currentToken()
-        if (token != null) runCatching { api.logout(token) }
-        session.clear()
     }
 }

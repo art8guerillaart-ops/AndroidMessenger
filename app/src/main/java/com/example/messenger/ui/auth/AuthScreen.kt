@@ -16,7 +16,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.messenger.ui.theme.*
 
 @Composable
 fun AuthScreen(
@@ -33,7 +32,7 @@ fun AuthScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgPage)
+            .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
             .imePadding(),
         contentAlignment = Alignment.Center
@@ -42,7 +41,7 @@ fun AuthScreen(
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .fillMaxWidth(0.85f),
-            colors = CardDefaults.cardColors(containerColor = CardBg),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
             shape = RoundedCornerShape(4.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
@@ -55,7 +54,7 @@ fun AuthScreen(
                 Text(
                     text = if (state.step == AuthStep.EMAIL) "WELCOME" else "VERIFICATION",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = InkBlack
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(28.dp))
@@ -77,14 +76,17 @@ fun AuthScreen(
                     Button(
                         onClick = viewModel::sendCode,
                         enabled = !state.loading,
-                        colors = ButtonDefaults.buttonColors(containerColor = InkBlack, contentColor = White),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier.fillMaxWidth().height(38.dp)
                     ) {
                         Text(
                             text = "GET THE CODE",
                             style = MaterialTheme.typography.labelSmall,
-                            color = White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 } else {
@@ -104,21 +106,24 @@ fun AuthScreen(
                     Button(
                         onClick = viewModel::verifyCode,
                         enabled = !state.loading,
-                        colors = ButtonDefaults.buttonColors(containerColor = InkBlack, contentColor = White),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier.fillMaxWidth().height(38.dp)
                     ) {
-                        Text(text = "GO", style = MaterialTheme.typography.labelSmall, color = White)
+                        Text(text = "GO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
 
                 if (state.error != null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(text = state.error!!, color = ErrorRed, fontSize = 11.sp)
+                    Text(text = state.error!!, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                 }
                 if (state.statusHint != null && state.error == null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(text = state.statusHint!!, color = MutedText, fontSize = 10.sp)
+                    Text(text = state.statusHint!!, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                 }
             }
         }
@@ -127,10 +132,10 @@ fun AuthScreen(
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = White,
-    unfocusedContainerColor = White,
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
     focusedBorderColor = Color.Transparent,
     unfocusedBorderColor = Color.Transparent,
-    focusedTextColor = InkBlack,
-    unfocusedTextColor = InkBlack
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
 )

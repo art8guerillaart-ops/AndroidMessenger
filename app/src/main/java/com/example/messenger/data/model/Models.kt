@@ -20,7 +20,9 @@ data class AuthResponse(
 data class ChatDto(
     @SerialName("chat_id") val chatId: String,
     val title: String,
-    @SerialName("chat_type") val chatType: String // "public" | "dm" | "group"
+    @SerialName("chat_type") val chatType: String, // "public" | "dm" | "group"
+    @SerialName("peer_email") val peerEmail: String? = null, // только для dm, настоящий email — не подменять title
+    val nickname: String? = null
 )
 
 @Serializable
@@ -31,8 +33,12 @@ data class MessageDto(
     val ciphertext: String? = null,
     @SerialName("message_type") val messageType: String? = null, // "prekey" | "signal", только для dm
     @SerialName("file_url") val fileUrl: String?,
-    val time: String
+    val time: String,
+    val nickname: String? = null
 )
+
+fun MessageDto.senderDisplayName(): String =
+    nickname?.takeIf { it.isNotBlank() } ?: sender.substringBefore("@")
 
 @Serializable
 data class DmRequest(@SerialName("peer_email") val peerEmail: String)
@@ -44,13 +50,26 @@ data class ChatCreateRequest(@SerialName("chat_id") val chatId: String, val titl
 data class ParticipantRequest(val email: String)
 
 @Serializable
-data class ParticipantDto(val email: String, @SerialName("is_admin") val isAdmin: Boolean)
+data class ParticipantDto(
+    val email: String,
+    @SerialName("is_admin") val isAdmin: Boolean,
+    val nickname: String? = null
+)
+
+fun ParticipantDto.displayName(): String =
+    nickname?.takeIf { it.isNotBlank() } ?: email.substringBefore("@")
 
 @Serializable
 data class UploadResponse(@SerialName("file_url") val fileUrl: String, val filename: String)
 
 @Serializable
 data class SimpleMessage(val message: String)
+
+@Serializable
+data class ProfileDto(val email: String, val nickname: String? = null)
+
+@Serializable
+data class NicknameUpdateRequest(val nickname: String)
 
 // Приходит по WebSocket
 @Serializable

@@ -16,15 +16,23 @@ import com.example.messenger.ui.chat.ChatScreen
 import com.example.messenger.ui.chat.ChatViewModel
 import com.example.messenger.ui.chatlist.ChatListScreen
 import com.example.messenger.ui.chatlist.ChatListViewModel
+import com.example.messenger.ui.settings.SettingsScreen
+import com.example.messenger.ui.settings.SettingsViewModel
 import java.net.URLDecoder
 import java.net.URLEncoder
+
+// Заголовок dm-чата резолвится сервером в никнейм собеседника (может отличаться от email),
+// поэтому Signal-сессии (см. ChatViewModel.peerEmail) нужен настоящий email отдельным аргументом.
+private const val NO_PEER = "-"
 
 private object Routes {
     const val AUTH = "auth"
     const val CHAT_LIST = "chat_list"
-    const val CHAT = "chat/{chatId}/{title}/{chatType}"
-    fun chat(chatId: String, title: String, chatType: String) =
-        "chat/${URLEncoder.encode(chatId, "UTF-8")}/${URLEncoder.encode(title, "UTF-8")}/${URLEncoder.encode(chatType, "UTF-8")}"
+    const val SETTINGS = "settings"
+    const val CHAT = "chat/{chatId}/{title}/{chatType}/{peerEmail}"
+    fun chat(chatId: String, title: String, chatType: String, peerEmail: String?) =
+        "chat/${URLEncoder.encode(chatId, "UTF-8")}/${URLEncoder.encode(title, "UTF-8")}/" +
+            "${URLEncoder.encode(chatType, "UTF-8")}/${URLEncoder.encode(peerEmail ?: NO_PEER, "UTF-8")}"
 }
 
 @Composable
@@ -53,9 +61,24 @@ fun MessengerNavGraph(app: MessengerApp) {
             })
             ChatListScreen(
                 viewModel = vm,
-                onOpenChat = { chatId, title, chatType ->
-                    navController.navigate(Routes.chat(chatId, title, chatType))
+                onOpenChat = { chatId, title, chatType, peerEmail ->
+                    navController.navigate(Routes.chat(chatId, title, chatType, peerEmail))
                 },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS)
+                }
+            )
+        }
+
+        composable(Routes.SETTINGS) {
+            val vm = viewModel<SettingsViewModel>(factory = vmFactory {
+                initializer {
+                    SettingsViewModel(app.api, app.sessionManager, app.preferencesManager, app.notificationHelper)
+                }
+            })
+            SettingsScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
                 onLoggedOut = {
                     navController.navigate(Routes.AUTH) {
                         popUpTo(Routes.CHAT_LIST) { inclusive = true }
@@ -69,15 +92,22 @@ fun MessengerNavGraph(app: MessengerApp) {
             arguments = listOf(
                 navArgument("chatId") { type = NavType.StringType },
                 navArgument("title") { type = NavType.StringType },
-                navArgument("chatType") { type = NavType.StringType }
+                navArgument("chatType") { type = NavType.StringType },
+                navArgument("peerEmail") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val chatId = URLDecoder.decode(backStackEntry.arguments?.getString("chatId").orEmpty(), "UTF-8")
             val title = URLDecoder.decode(backStackEntry.arguments?.getString("title").orEmpty(), "UTF-8")
             val chatType = URLDecoder.decode(backStackEntry.arguments?.getString("chatType").orEmpty(), "UTF-8")
+            val peerEmailArg = URLDecoder.decode(backStackEntry.arguments?.getString("peerEmail").orEmpty(), "UTF-8")
+            val peerEmail = peerEmailArg.takeUnless { it == NO_PEER }
             val vm = viewModel<ChatViewModel>(factory = vmFactory {
                 initializer {
-                    ChatViewModel(chatId, title, chatType, app.api, app.sessionManager, app.webSocketClient, app.signalRepository)
+                    ChatViewModel(
+                        chatId, title, chatType, peerEmail,
+                        app.api, app.sessionManager, app.webSocketClient, app.signalRepository,
+                        app.notificationHelper, app.preferencesManager
+                    )
                 }
             })
             ChatScreen(

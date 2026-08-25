@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +32,8 @@ import coil.compose.AsyncImage
 import com.example.messenger.data.api.RetrofitClient
 import com.example.messenger.data.model.MessageDto
 import com.example.messenger.data.model.ParticipantDto
+import com.example.messenger.data.model.displayName
+import com.example.messenger.data.model.senderDisplayName
 import com.example.messenger.ui.theme.*
 import java.io.File
 import java.io.FileOutputStream
@@ -66,35 +70,54 @@ fun ChatScreen(
     }
 
     Scaffold(
-        containerColor = White,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(state.title, style = MaterialTheme.typography.titleMedium, color = InkBlack)
+                        Text(
+                            state.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Text(
                             if (state.onlineCount > 0) "в сети: ${state.onlineCount}" else "офлайн",
                             fontSize = 10.sp,
-                            color = MutedText
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = InkBlack)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Назад",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 actions = {
+                    IconButton(onClick = viewModel::toggleMute) {
+                        Icon(
+                            if (state.isMuted) Icons.Default.NotificationsOff else Icons.Default.Notifications,
+                            contentDescription = if (state.isMuted) "Включить уведомления" else "Отключить уведомления",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     if (state.chatType == "group") {
                         IconButton(onClick = {
                             showParticipants = true
                             viewModel.loadParticipants()
                         }) {
-                            Icon(Icons.Default.Group, contentDescription = "Участники", tint = InkBlack)
+                            Icon(
+                                Icons.Default.Group,
+                                contentDescription = "Участники",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         bottomBar = {
@@ -107,9 +130,9 @@ fun ChatScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize().background(White)) {
+        Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             if (state.loading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = InkBlack)
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurface)
             } else {
                 LazyColumn(
                     state = listState,
@@ -126,11 +149,11 @@ fun ChatScreen(
             if (state.connectionError != null) {
                 Text(
                     state.connectionError!!,
-                    color = ErrorRed,
+                    color = MaterialTheme.colorScheme.error,
                     fontSize = 11.sp,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .background(White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .padding(6.dp)
                 )
             }
@@ -167,7 +190,7 @@ private fun MessageBubble(msg: MessageDto, isOwn: Boolean) {
         ) {
             if (!isOwn) {
                 Text(
-                    msg.sender,
+                    msg.senderDisplayName(),
                     fontSize = 9.sp,
                     color = MutedText,
                     modifier = Modifier.padding(bottom = 2.dp)
@@ -213,7 +236,7 @@ private fun ChatInputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(FooterBg)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -221,9 +244,17 @@ private fun ChatInputBar(
     ) {
         IconButton(onClick = onAttach, enabled = !uploading) {
             if (uploading) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = InkBlack)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             } else {
-                Icon(Icons.Default.AttachFile, contentDescription = "Прикрепить файл", tint = InkBlack)
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = "Прикрепить файл",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
         OutlinedTextField(
@@ -233,8 +264,8 @@ private fun ChatInputBar(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(6.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = White,
-                unfocusedContainerColor = White,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
                 unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
             ),
@@ -242,7 +273,7 @@ private fun ChatInputBar(
         )
         Spacer(modifier = Modifier.width(4.dp))
         IconButton(onClick = onSend) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить", tint = InkBlack)
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить", tint = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -271,14 +302,18 @@ private fun ParticipantsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            p.email + if (p.isAdmin) " (админ)" else "",
+                            p.displayName() + if (p.isAdmin) " (админ)" else "",
                             fontSize = 13.sp,
-                            color = InkBlack,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
                         if (canRemove) {
                             TextButton(onClick = { onRemove(p.email) }) {
-                                Text(if (p.email == myEmail) "Покинуть" else "Удалить", color = ErrorRed, fontSize = 12.sp)
+                                Text(
+                                    if (p.email == myEmail) "Покинуть" else "Удалить",
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 12.sp
+                                )
                             }
                         }
                     }
@@ -300,18 +335,18 @@ private fun ParticipantsDialog(
                                 onAdd(newEmail.trim())
                                 newEmail = ""
                             }
-                        }) { Text("+", color = InkBlack) }
+                        }) { Text("+", color = MaterialTheme.colorScheme.onSurface) }
                     }
                 }
 
                 if (error != null) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(error, color = ErrorRed, fontSize = 11.sp)
+                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Закрыть", color = InkBlack) }
+            TextButton(onClick = onDismiss) { Text("Закрыть", color = MaterialTheme.colorScheme.onSurface) }
         }
     )
 }
