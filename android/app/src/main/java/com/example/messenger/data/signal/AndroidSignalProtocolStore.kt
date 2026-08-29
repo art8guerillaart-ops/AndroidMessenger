@@ -186,6 +186,13 @@ class AndroidSignalProtocolStore(
         dao.insertLocalIdentity(LocalIdentityEntity(0, identityKeyPair.serialize(), registrationId))
     }
 
+    /** true только после того, как /api/keys/publish подтвердил приём ключей — см. LocalIdentityEntity.keysPublished. */
+    fun isKeysPublished(): Boolean = dao.getLocalIdentity()?.keysPublished ?: false
+
+    fun markKeysPublished() {
+        dao.markKeysPublished()
+    }
+
     fun currentSignedPreKeyId(): Int =
         dao.getLocalIdentity()?.currentSignedPreKeyId
             ?: error("Локальный identity key ещё не сгенерирован")

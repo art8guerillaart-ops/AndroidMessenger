@@ -27,6 +27,9 @@ interface SignalKeyDao {
     @Query("UPDATE local_identity SET currentSignedPreKeyId = :value WHERE id = 0")
     fun updateCurrentSignedPreKeyId(value: Int)
 
+    @Query("UPDATE local_identity SET keysPublished = 1 WHERE id = 0")
+    fun markKeysPublished()
+
     @Query("SELECT identityKey FROM remote_identities WHERE name = :name AND deviceId = :deviceId")
     fun getRemoteIdentityKey(name: String, deviceId: Int): ByteArray?
 

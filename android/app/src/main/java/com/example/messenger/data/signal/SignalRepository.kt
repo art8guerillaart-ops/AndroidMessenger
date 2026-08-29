@@ -48,22 +48,28 @@ class SignalRepository(
     // -------------------------------------------------------------------
 
     /**
-     * Вызывается один раз после verify-code. Если локальный identity key уже
-     * существует (устройство уже регистрировало ключи ранее — одно устройство
-     * на пользователя, повторных логинов без переустановки быть не должно),
-     * ничего не делает.
+     * Вызывается один раз после verify-code. Если ключи уже успешно опубликованы
+     * на сервере — ничего не делает. Если локальный identity уже есть, но
+     * publishKeys() в прошлый раз не долетел до сервера (обрыв сети и т.п.) —
+     * повторяет попытку публикации, переиспользуя существующий identity, но со
+     * свежими signed/one-time prekeys (см. LocalIdentityEntity.keysPublished —
+     * одного hasLocalIdentity() недостаточно, т.к. identity сохраняется локально
+     * раньше, чем сервер подтверждает приём ключей).
      */
     suspend fun registerIfNeeded() = withContext(Dispatchers.IO) {
-        if (store.hasLocalIdentity()) return@withContext
+        if (store.hasLocalIdentity() && store.isKeysPublished()) return@withContext
         val token = session.currentToken() ?: return@withContext
 
-        val identityKeyPair = IdentityKeyPair.generate()
-        val registrationId = KeyHelper.generateRegistrationId(false)
-        store.saveLocalIdentity(identityKeyPair, registrationId)
+        if (!store.hasLocalIdentity()) {
+            val identityKeyPair = IdentityKeyPair.generate()
+            val registrationId = KeyHelper.generateRegistrationId(false)
+            store.saveLocalIdentity(identityKeyPair, registrationId)
+            store.setCurrentSignedPreKeyId(1)
+        }
 
-        val signedPreKeyId = 1
-        store.setCurrentSignedPreKeyId(signedPreKeyId)
-        val signedEntry = generateAndStoreSignedPreKey(identityKeyPair, signedPreKeyId)
+        val identityKeyPair = store.identityKeyPair
+        val registrationId = store.localRegistrationId
+        val signedEntry = generateAndStoreSignedPreKey(identityKeyPair, store.currentSignedPreKeyId())
         val oneTimeEntries = generateAndStoreOneTimePreKeys(ONE_TIME_PREKEY_BATCH)
 
         api.publishKeys(
@@ -75,6 +81,7 @@ class SignalRepository(
                 oneTimePreKeys = oneTimeEntries
             )
         )
+        store.markKeysPublished()
     }
 
     private fun generateAndStoreSignedPreKey(identityKeyPair: IdentityKeyPair, id: Int): SignedPreKeyEntryDto {

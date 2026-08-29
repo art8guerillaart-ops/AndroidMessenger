@@ -20,7 +20,16 @@ data class LocalIdentityEntity(
     // к повторной выдаче id, который уже опубликован и, возможно, ещё не
     // израсходован на сервере.
     val nextPreKeyId: Int = 1,
-    val currentSignedPreKeyId: Int = 1
+    val currentSignedPreKeyId: Int = 1,
+    // false, пока /api/keys/publish не подтвердил приём ключей сервером — см.
+    // AndroidSignalProtocolStore.isKeysPublished()/markKeysPublished() и
+    // SignalRepository.registerIfNeeded(): identity генерируется и сохраняется
+    // локально ДО сетевого вызова (это нужно PreKeyStore/SignedPreKeyStore уже
+    // во время генерации), поэтому одного hasLocalIdentity() недостаточно, чтобы
+    // считать регистрацию завершённой — если publishKeys() не долетел (обрыв
+    // сети и т.п.), при следующем запуске нужно повторить попытку, а не молча
+    // считать пользователя уже зарегистрированным навсегда.
+    val keysPublished: Boolean = false
 )
 
 /**

@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         SignedPreKeyEntity::class,
         SessionEntity::class,
     ],
-    version = 2, // добавлены nextPreKeyId/currentSignedPreKeyId в LocalIdentityEntity
+    version = 3, // добавлен keysPublished в LocalIdentityEntity
     exportSchema = false
 )
 abstract class SignalDatabase : RoomDatabase() {
