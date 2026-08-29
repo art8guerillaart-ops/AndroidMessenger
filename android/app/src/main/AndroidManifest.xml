@@ -6,7 +6,7 @@
 
     <application
         android:name=".MessengerApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="Messenger"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
