@@ -1,5 +1,6 @@
 package com.example.messenger.ui.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.messenger.data.api.ApiService
@@ -41,6 +42,15 @@ class AuthViewModel(
         _state.value = _state.value.copy(code = value, error = null)
     }
 
+    fun goBackToEmail() {
+        _state.value = _state.value.copy(
+            step = AuthStep.EMAIL,
+            code = "",
+            error = null,
+            statusHint = null
+        )
+    }
+
     fun sendCode() {
         val email = _state.value.email.trim()
         if (email.isEmpty()) {
@@ -62,6 +72,7 @@ class AuthViewModel(
                     }
                 }
                 .onFailure {
+                    Log.e("AuthViewModel", "sendCode() failed", it)
                     _state.value = _state.value.copy(loading = false, error = "Нет соединения с сервером")
                 }
         }
@@ -86,12 +97,14 @@ class AuthViewModel(
                         // установить сессию, пока ключи не появятся — остальное приложение
                         // (публичные/групповые чаты) от этого не зависит.
                         runCatching { signalRepository.registerIfNeeded() }
+                            .onFailure { Log.e("AuthViewModel", "registerIfNeeded() failed", it) }
                         _state.value = _state.value.copy(loading = false, loggedIn = true)
                     } else {
                         _state.value = _state.value.copy(loading = false, error = "Неверный код")
                     }
                 }
                 .onFailure {
+                    Log.e("AuthViewModel", "verifyCode() failed", it)
                     _state.value = _state.value.copy(loading = false, error = "Нет соединения с сервером")
                 }
         }

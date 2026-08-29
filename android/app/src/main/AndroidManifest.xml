@@ -7,7 +7,9 @@
     <application
         android:name=".MessengerApp"
         android:allowBackup="false"
-        android:label="Messenger"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
