@@ -1,11 +1,12 @@
 import hashlib
+import json
 import os
 import re
 import secrets
-import smtplib
 import time
+import urllib.error
+import urllib.request
 import uuid
-from email.message import EmailMessage
 from pathlib import Path
 
 import aiosqlite
@@ -417,26 +418,41 @@ async def _leave_group_chat(db: aiosqlite.Connection, chat_id: str, email: str):
 
 
 def _send_smtp_sync(email: str, code: str):
-    """Синхронная отправка письма (выполняется в threadpool, т.к. smtplib блокирующий)."""
-    message = EmailMessage()
-    message["From"] = SMTP_FROM
-    message["To"] = email
-    message["Subject"] = "Код подтверждения"
-    message.set_content(
-        f"Ваш код подтверждения: {code}\n\n"
-        f"Код действителен {CODE_TTL_SECONDS // 60} минут.\n"
-        f"Если вы не запрашивали код — просто проигнорируйте это письмо."
-    )
+    """Отправка письма через HTTP API Resend (выполняется в threadpool).
 
-    if SMTP_USE_SSL:
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(message)
-    else:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(message)
+    Render на бесплатном тарифе с 2025-09-26 блокирует исходящий трафик на
+    SMTP-порты (25/465/587), поэтому прямое SMTP-соединение всегда виснет по
+    таймауту. HTTP API Resend работает через порт 443 и это не задевает —
+    SMTP_PASSWORD используется как Resend API-ключ (Bearer-токен).
+    """
+    payload = json.dumps({
+        "from": SMTP_FROM,
+        "to": [email],
+        "subject": "Код подтверждения",
+        "text": (
+            f"Ваш код подтверждения: {code}\n\n"
+            f"Код действителен {CODE_TTL_SECONDS // 60} минут.\n"
+            f"Если вы не запрашивали код — просто проигнорируйте это письмо."
+        ),
+    }).encode("utf-8")
+
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {SMTP_PASSWORD}",
+            "Content-Type": "application/json",
+            # Resend сидит за Cloudflare, которая режет запросы со стандартным
+            # User-Agent'ом urllib ("Python-urllib/3.x") как код 1010.
+            "User-Agent": "Mozilla/5.0 (compatible; MyMessengerBackend/1.0)",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            response.read()
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Resend API {e.code}: {e.read().decode('utf-8', 'replace')}") from e
 
 
 async def send_email_code(email: str, code: str):
