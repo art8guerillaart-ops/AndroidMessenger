@@ -23,8 +23,10 @@ object RetrofitClient {
 
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(logging)
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        // Render free-тир засыпает при простое и может просыпаться до 50+ сек —
+        // держим таймауты с запасом, чтобы не падать с "нет соединения" на холодном старте.
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     val api: ApiService by lazy {
