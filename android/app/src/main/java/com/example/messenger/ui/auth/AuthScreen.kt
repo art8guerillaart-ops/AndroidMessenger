@@ -58,7 +58,7 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = if (state.step == AuthStep.EMAIL) "BLACKHORSE" else "VERIFICATION",
+                text = if (state.step == AuthStep.EMAIL) "HORSE" else "VERIFICATION",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
