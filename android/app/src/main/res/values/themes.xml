@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Системный Splash Screen API (Android 12+) требует показать что-то в момент холодного
+        старта, ещё до первого кадра Compose. Делаем эту системную часть незаметной: фон —
+        тот же светлый оттенок, что и auth_bg_lowpoly.png/BgPage (#DDDDDD), а иконка —
+        прозрачная 1x1, чтобы не было двойного лого (системное + наше в SplashScreen.kt).
+        После неё сразу подставляется обычная тема приложения (postSplashScreenTheme).
+    -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#DDDDDD</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/transparent_splash_icon_png</item>
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+</resources>

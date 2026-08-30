@@ -1,7 +1,6 @@
 package com.example.messenger.ui.auth
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,14 +12,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.messenger.R
+import com.example.messenger.ui.theme.DisplayFontFamily
 
 @Composable
 fun AuthScreen(
@@ -34,14 +38,29 @@ fun AuthScreen(
         return
     }
 
+    val horseTitleBrush = Brush.linearGradient(
+        colorStops = arrayOf(
+            0f to Color(0xFF666666),
+            0.8221f to Color(0xFF000000)
+        ),
+        start = Offset.Zero,
+        end = Offset(Float.POSITIVE_INFINITY, 0f)
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
             .imePadding(),
         contentAlignment = Alignment.Center
     ) {
+        Image(
+            painter = painterResource(R.drawable.auth_bg_lowpoly),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
         Column(
             modifier = Modifier
                 .widthIn(max = 320.dp)
@@ -50,18 +69,30 @@ fun AuthScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(R.drawable.ic_horse_logo),
+                painter = painterResource(R.drawable.horse_3d_logo),
                 contentDescription = null,
-                modifier = Modifier.size(120.dp)
+                modifier = Modifier.size(130.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = if (state.step == AuthStep.EMAIL) "HORSE" else "VERIFICATION",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            if (state.step == AuthStep.EMAIL) {
+                Text(
+                    text = "HORSE",
+                    style = TextStyle(
+                        brush = horseTitleBrush,
+                        fontFamily = DisplayFontFamily,
+                        fontSize = 26.sp,
+                        lineHeight = 37.sp
+                    )
+                )
+            } else {
+                Text(
+                    text = "VERIFICATION",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
 

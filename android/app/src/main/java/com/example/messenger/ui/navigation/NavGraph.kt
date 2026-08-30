@@ -1,6 +1,7 @@
 package com.example.messenger.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.viewModelFactory as vmFactory
 import androidx.lifecycle.viewmodel.initializer
@@ -18,6 +19,7 @@ import com.example.messenger.ui.chatlist.ChatListScreen
 import com.example.messenger.ui.chatlist.ChatListViewModel
 import com.example.messenger.ui.settings.SettingsScreen
 import com.example.messenger.ui.settings.SettingsViewModel
+import com.example.messenger.ui.splash.SplashScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -26,6 +28,7 @@ import java.net.URLEncoder
 private const val NO_PEER = "-"
 
 private object Routes {
+    const val SPLASH = "splash"
     const val AUTH = "auth"
     const val CHAT_LIST = "chat_list"
     const val SETTINGS = "settings"
@@ -39,7 +42,17 @@ private object Routes {
 fun MessengerNavGraph(app: MessengerApp) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Routes.AUTH) {
+    NavHost(navController = navController, startDestination = Routes.SPLASH) {
+
+        composable(Routes.SPLASH) {
+            LaunchedEffect(Unit) {
+                val destination = if (app.sessionManager.currentToken() != null) Routes.CHAT_LIST else Routes.AUTH
+                navController.navigate(destination) {
+                    popUpTo(Routes.SPLASH) { inclusive = true }
+                }
+            }
+            SplashScreen()
+        }
 
         composable(Routes.AUTH) {
             val vm = viewModel<AuthViewModel>(factory = vmFactory {
