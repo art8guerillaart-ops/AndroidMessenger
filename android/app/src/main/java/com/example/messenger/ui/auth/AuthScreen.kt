@@ -1,8 +1,10 @@
 package com.example.messenger.ui.auth
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,22 +12,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.messenger.R
 import com.example.messenger.ui.theme.DisplayFontFamily
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel,
@@ -96,41 +102,77 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
+            // Общий модификатор ширины и высоты для поля ввода и кнопки под ним —
+            // по макету (node-id=167-3) оба элемента строго одного размера.
+            val fieldWidthModifier = Modifier.fillMaxWidth().height(38.dp)
+
             if (state.step == AuthStep.EMAIL) {
-                OutlinedTextField(
+                // Стандартный OutlinedTextField не сжимается ниже ~56dp без обрезания
+                // текста (фиксированные внутренние отступы Material3), а по макету поле
+                // должно быть строго высотой с кнопку (38dp) — поэтому здесь используется
+                // низкоуровневый BasicTextField + DecorationBox с компактными contentPadding.
+                val emailFieldInteractionSource = remember { MutableInteractionSource() }
+                BasicTextField(
                     value = state.email,
                     onValueChange = viewModel::onEmailChange,
-                    placeholder = { Text("name@mail.com", fontSize = 13.sp) },
-                    leadingIcon = {
-                        Text(
-                            text = "@",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 15.sp
-                        )
-                    },
+                    modifier = fieldWidthModifier,
                     singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = fieldColors(),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    interactionSource = emailFieldInteractionSource
+                ) { innerTextField ->
+                    OutlinedTextFieldDefaults.DecorationBox(
+                        value = state.email,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = emailFieldInteractionSource,
+                        placeholder = { Text("name@mail.com", fontSize = 13.sp) },
+                        leadingIcon = {
+                            Text(
+                                text = "@",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 15.sp
+                            )
+                        },
+                        colors = fieldColors(),
+                        contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 0.dp, bottom = 0.dp),
+                        container = {
+                            OutlinedTextFieldDefaults.ContainerBox(
+                                enabled = true,
+                                isError = false,
+                                interactionSource = emailFieldInteractionSource,
+                                colors = fieldColors(),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                        }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Button(
                     onClick = viewModel::sendCode,
                     enabled = !state.loading,
+                    // Figma-макет (node-id=167-3) красит именно эту кнопку акцентным
+                    // красным, а не основным цветом темы — переиспользуем уже
+                    // объявленный error-токен (ErrorRed), а не заводим новый hex.
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
                     ),
                     shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth().height(38.dp)
+                    modifier = fieldWidthModifier
                 ) {
                     Text(
                         text = "GET THE CODE",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onError
                     )
                 }
             } else {
