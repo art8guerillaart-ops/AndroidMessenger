@@ -13,6 +13,7 @@ val FooterBg = Color(0xFFF5F5F5)
 val MutedText = Color(0xFF9D9D9D)
 val BorderSoft = Color(0x14000000) // rgba(0,0,0,0.08)
 val ErrorRed = Color(0xFFB23B3B)
+val ButtonRed = Color(0xFF9C2525) // акцентная кнопка "GO" на экране верификации (Figma node-id=169-4)
 
 // Тёмная тема: фон и поверхности темнеют, текст светлеет — тот же визуальный язык.
 // Пузыри сообщений (InkBlack/PanelBg/White выше) в тёмную палитру не входят: см.
