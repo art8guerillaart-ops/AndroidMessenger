@@ -1,5 +1,6 @@
 package com.example.messenger.ui.splash
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -14,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,15 @@ fun SplashScreen() {
             repeatMode = RepeatMode.Reverse
         ),
         label = "splash_logo_alpha"
+    )
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "splash_logo_rotation"
     )
 
     Box(
@@ -49,6 +60,7 @@ fun SplashScreen() {
             modifier = Modifier
                 .size(100.dp)
                 .alpha(alpha)
+                .graphicsLayer(rotationZ = rotation)
         )
     }
 }
