@@ -3,6 +3,12 @@ package com.example.messenger.ui.auth
 import android.graphics.BlurMaskFilter
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -100,10 +107,30 @@ fun AuthScreen(
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val logoScale = if (state.step == AuthStep.CODE) {
+                val logoBreathingTransition = rememberInfiniteTransition(label = "logoBreathing")
+                val animatedScale by logoBreathingTransition.animateFloat(
+                    initialValue = 0.96f,
+                    targetValue = 1.04f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "logoScale"
+                )
+                animatedScale
+            } else {
+                1f
+            }
+
             Image(
-                painter = painterResource(R.drawable.horse_3d_logo),
+                painter = painterResource(
+                    if (state.step == AuthStep.CODE) R.drawable.horse_lowpoly_white else R.drawable.horse_3d_logo
+                ),
                 contentDescription = null,
-                modifier = Modifier.size(130.dp)
+                modifier = Modifier
+                    .size(130.dp)
+                    .scale(logoScale)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
