@@ -79,6 +79,11 @@ fun MessengerNavGraph(app: MessengerApp) {
                 },
                 onOpenSettings = {
                     navController.navigate(Routes.SETTINGS)
+                },
+                onSessionExpired = {
+                    navController.navigate(Routes.AUTH) {
+                        popUpTo(Routes.CHAT_LIST) { inclusive = true }
+                    }
                 }
             )
         }

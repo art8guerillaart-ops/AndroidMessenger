@@ -60,7 +60,8 @@ import com.example.messenger.ui.theme.InkBlack
 fun ChatListScreen(
     viewModel: ChatListViewModel,
     onOpenChat: (chatId: String, title: String, chatType: String, peerEmail: String?) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onSessionExpired: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     var showDmDialog by remember { mutableStateOf(false) }
@@ -79,6 +80,10 @@ fun ChatListScreen(
     // иначе после удаления чата через ChatScreen тут остался бы "призрак".
     LaunchedEffect(Unit) {
         viewModel.loadChats()
+    }
+
+    LaunchedEffect(state.sessionExpired) {
+        if (state.sessionExpired) onSessionExpired()
     }
 
     Box(

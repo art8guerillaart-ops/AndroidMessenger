@@ -19,7 +19,8 @@ data class ChatListUiState(
     val dmError: String? = null,
     val groupError: String? = null,
     val deleteChatError: String? = null,
-    val query: String = ""
+    val query: String = "",
+    val sessionExpired: Boolean = false
 ) {
     val filteredChats: List<ChatDto>
         get() = if (query.isBlank()) chats
@@ -49,6 +50,13 @@ class ChatListViewModel(
                             chats = response.body().orEmpty(),
                             loading = false
                         )
+                    } else if (response.code() == 401) {
+                        // Сессии на бэкенде живут в памяти процесса (см. main.py) и
+                        // обнуляются при рестарте — локально сохранённый токен при этом
+                        // "протухает" молча. Разлогиниваем на клиенте, иначе экран
+                        // навечно виснет на ошибке загрузки без выхода к логину.
+                        session.clear()
+                        _state.value = _state.value.copy(loading = false, sessionExpired = true)
                     } else {
                         _state.value = _state.value.copy(loading = false, error = "Не удалось загрузить чаты")
                     }
