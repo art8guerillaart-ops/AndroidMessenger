@@ -288,16 +288,6 @@ async def startup_db():
     await db.execute("UPDATE chats SET chat_type = 'public' WHERE is_private = 0")
     await db.execute("UPDATE chats SET chat_type = 'dm' WHERE chat_id LIKE 'dm\\_%' ESCAPE '\\'")
 
-    default_chats = [
-        ("general-chat", "Общий чат", 0, "public"),
-        ("tech-chat", "Разработка", 0, "public"),
-        ("random-chat", "Курилка / Random", 0, "public"),
-    ]
-    await db.batch([
-        ("INSERT OR IGNORE INTO chats (chat_id, title, is_private, chat_type) VALUES (?, ?, ?, ?)", row)
-        for row in default_chats
-    ])
-
 
 @app.on_event("shutdown")
 async def shutdown_db():
