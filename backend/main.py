@@ -119,46 +119,45 @@ SMTP_USE_SSL = os.environ.get("SMTP_USE_SSL", "false").lower() == "true"
 EMAIL_CONFIGURED = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
 
 # --------------------------------------------------------------------------
-# In-memory хранилища (для прод-версии — вынести в Redis/БД)
+# In-memory хранилища
 # --------------------------------------------------------------------------
 
 # email -> {"code": str, "expires_at": float, "last_sent_at": float, "attempts": int}
+# Короткоживущие (TTL 5 минут) — не страшно, если рестарт процесса их обнулит.
 verification_codes: dict[str, dict] = {}
 
-# token -> {"email": str, "expires_at": float}
-sessions: dict[str, dict] = {}
 
-
-def _cleanup_expired_sessions():
-    now = time.time()
-    expired = [t for t, s in sessions.items() if s["expires_at"] < now]
-    for t in expired:
-        del sessions[t]
-
-
-def create_session(email: str) -> str:
+# Сессии живут в таблице sessions (см. startup_db), а не в памяти процесса —
+# иначе рестарт/редеплой инстанса (Render это делает регулярно) молча
+# разлогинивал бы всех, у кого токен ещё считался валидным на клиенте.
+async def create_session(db: libsql_client.Client, email: str) -> str:
     token = secrets.token_urlsafe(32)
-    sessions[token] = {"email": email, "expires_at": time.time() + SESSION_TTL_SECONDS}
+    await db.execute(
+        "INSERT INTO sessions (token, email, expires_at) VALUES (?, ?, ?)",
+        (token, email, time.time() + SESSION_TTL_SECONDS),
+    )
     return token
 
 
-def resolve_session(token: str | None) -> str | None:
+async def resolve_session(db: libsql_client.Client, token: str | None) -> str | None:
     """Возвращает email по токену, если сессия валидна, иначе None."""
     if not token:
         return None
-    _cleanup_expired_sessions()
-    session = sessions.get(token)
-    if not session:
+    result = await db.execute(
+        "SELECT email, expires_at FROM sessions WHERE token = ?", (token,)
+    )
+    if not result.rows:
         return None
-    if session["expires_at"] < time.time():
-        del sessions[token]
+    email, expires_at = result.rows[0]
+    if expires_at < time.time():
+        await db.execute("DELETE FROM sessions WHERE token = ?", (token,))
         return None
-    return session["email"]
+    return email
 
 
 async def get_current_email(x_session_token: str | None = Header(default=None)) -> str:
     """FastAPI dependency для защищённых REST-эндпоинтов."""
-    email = resolve_session(x_session_token)
+    email = await resolve_session(get_db(), x_session_token)
     if not email:
         raise HTTPException(status_code=401, detail="Требуется авторизация")
     return email
@@ -216,6 +215,16 @@ async def startup_db():
             PRIMARY KEY (chat_id, email)
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            expires_at REAL NOT NULL
+        )
+    """)
+    # Просроченные сессии не удаляются построчно нигде, кроме как при обращении
+    # по их собственному токену (см. resolve_session) — подчищаем накопившееся здесь.
+    await db.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
 
     # Signal Protocol: ключи для E2E-шифрования личных переписок.
     # Одно устройство на пользователя — поэтому identity/signed prekey
@@ -588,14 +597,14 @@ async def verify_code(data: VerifyRequest):
         (data.email, "В сети"),
     )
 
-    token = create_session(data.email)
+    token = await create_session(db, data.email)
     return {"message": "Успешная авторизация!", "token": token, "email": data.email}
 
 
 @app.post("/api/logout")
 async def logout(x_session_token: str | None = Header(default=None)):
-    if x_session_token in sessions:
-        del sessions[x_session_token]
+    if x_session_token:
+        await get_db().execute("DELETE FROM sessions WHERE token = ?", (x_session_token,))
     return {"message": "Вы вышли"}
 
 
@@ -673,8 +682,7 @@ async def delete_account(email: str = Depends(get_current_email)):
 
     # Инвалидируем все сессии этого пользователя (не только текущую) —
     # иначе устройство/вкладка с другой сессией останется залогинена в удалённый аккаунт.
-    for token in [t for t, s in sessions.items() if s["email"] == email]:
-        del sessions[token]
+    await db.execute("DELETE FROM sessions WHERE email = ?", (email,))
 
     return {"message": "Аккаунт удалён"}
 
@@ -1055,7 +1063,7 @@ async def upload_file(file: UploadFile = File(...), email: str = Depends(get_cur
 @app.websocket("/ws/{chat_id}")
 async def websocket_endpoint(websocket: WebSocket, chat_id: str):
     token = websocket.query_params.get("token")
-    email = resolve_session(token)
+    email = await resolve_session(get_db(), token)
 
     if not email:
         await websocket.close(code=4401)  # кастомный код: unauthorized
