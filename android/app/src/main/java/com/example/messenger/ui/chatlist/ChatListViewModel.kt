@@ -1,5 +1,6 @@
 package com.example.messenger.ui.chatlist
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.messenger.data.api.ApiService
@@ -32,6 +33,10 @@ class ChatListViewModel(
     private val session: SessionManager
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "ChatListViewModel"
+    }
+
     private val _state = MutableStateFlow(ChatListUiState())
     val state: StateFlow<ChatListUiState> = _state.asStateFlow()
 
@@ -50,15 +55,17 @@ class ChatListViewModel(
                             chats = response.body().orEmpty(),
                             loading = false
                         )
-                    } else if (response.code() == 401) {
-                        // Сессии на бэкенде живут в памяти процесса (см. main.py) и
-                        // обнуляются при рестарте — локально сохранённый токен при этом
-                        // "протухает" молча. Разлогиниваем на клиенте, иначе экран
-                        // навечно виснет на ошибке загрузки без выхода к логину.
-                        session.clear()
-                        _state.value = _state.value.copy(loading = false, sessionExpired = true)
                     } else {
-                        _state.value = _state.value.copy(loading = false, error = "Не удалось загрузить чаты")
+                        Log.d(TAG, "loadChats: HTTP ${response.code()} — ${response.errorBody()?.string()}")
+                        if (response.code() == 401) {
+                            // Токен невалиден/истёк (сервер вернул 401) — разлогиниваем
+                            // на клиенте, иначе экран навечно виснет на ошибке загрузки
+                            // без выхода к логину.
+                            session.clear()
+                            _state.value = _state.value.copy(loading = false, sessionExpired = true)
+                        } else {
+                            _state.value = _state.value.copy(loading = false, error = "Не удалось загрузить чаты")
+                        }
                     }
                 }
                 .onFailure {
